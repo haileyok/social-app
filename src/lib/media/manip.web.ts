@@ -129,9 +129,8 @@ function createResizedImage(
       let w = img.width * scale
       let h = img.height * scale
       let x = (width - w) / 2
-      let y = (height - h) / 2
 
-      ctx.drawImage(img, x, y, w, h)
+      ctx.drawImage(img, x, 0, w, h)
       resolve(canvas.toDataURL('image/jpeg', quality))
     })
     img.src = dataUri
