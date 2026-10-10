@@ -11,11 +11,18 @@ import * as env from '#/env'
  * of the web bundle. Options mirror the native setup; RN-only options are
  * omitted.
  */
+/*
+ * bolide-capture harness: EXPO_PUBLIC_BOLIDE_CAPTURE=1 force-enables the SDK
+ * in dev (where IS_DEV would otherwise disable it), samples at 1.0, and turns
+ * on SDK debug output, so real envelopes always reach the capture server.
+ */
+const FORCE_CAPTURE = process.env.EXPO_PUBLIC_BOLIDE_CAPTURE === '1'
+
 init({
-  enabled: !env.IS_DEV && !!env.SENTRY_DSN,
+  enabled: FORCE_CAPTURE || (!env.IS_DEV && !!env.SENTRY_DSN),
   dsn: env.SENTRY_DSN,
   sendDefaultPii: true,
-  debug: false, // If `true`, Sentry will try to print out useful debugging information if something goes wrong with sending the event. Set it to `false` in production
+  debug: FORCE_CAPTURE, // If `true`, Sentry will try to print out useful debugging information if something goes wrong with sending the event. Set it to `false` in production
   environment: env.ENV,
   dist: env.BUNDLE_IDENTIFIER,
   release: env.RELEASE_VERSION,
@@ -35,7 +42,7 @@ init({
    * @see https://docs.sentry.io/platforms/react-native/configuration/options/#attach-stacktrace
    */
   attachStacktrace: false,
-  sampleRate: env.IS_INTERNAL ? 1.0 : 0.1,
+  sampleRate: FORCE_CAPTURE ? 1.0 : env.IS_INTERNAL ? 1.0 : 0.1,
   /**
    * Sample rate for performance spans (video playback, video upload). Setting
    * this also enables the SDK's default stall and slow/frozen frame tracking,
