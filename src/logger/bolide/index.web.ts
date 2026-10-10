@@ -1,13 +1,40 @@
 /**
- * Web variant of the bolide reporting module.
+ * Web variant of the bolide error reporting module.
  *
- * Same shared surface, plus page-hide flush: visibilitychange to hidden is
- * the last reliable send moment in browsers; pagehide/unload fire too late
- * for fetch in some engines.
+ * Self-contained like the Sentry setup variants: imports everything from
+ * @bluesky/bolide directly, no cross-variant imports (they resolve circularly
+ * once the platform resolver swaps this file in).
+ *
+ * Adds page-hide flush: visibilitychange to hidden is the last reliable
+ * send moment in browsers; pagehide/unload fire too late for fetch in some
+ * engines.
  */
-import {flush} from '@bluesky/bolide'
+import {captureError, captureMessage, flush, init} from '@bluesky/bolide'
 
-export {captureError, captureMessage, setupBolide} from './index'
+import * as env from '#/env'
+
+export {captureError, captureMessage}
+
+/**
+ * Initialize bolide. Disabled in dev unless capture mode is on; DSN comes
+ * from the bolide-specific env so the two systems run side by side.
+ */
+export function setupBolide() {
+  const dsn = process.env.EXPO_PUBLIC_BOLIDE_DSN
+  const forceCapture = process.env.EXPO_PUBLIC_BOLIDE_CAPTURE === '1'
+  const enabled = dsn != null && (!env.IS_DEV || forceCapture)
+  if (!enabled) return false
+  return init({
+    dsn: dsn,
+    environment: env.ENV,
+    release: env.RELEASE_VERSION,
+    dist: env.BUNDLE_IDENTIFIER,
+    sampleRate: env.IS_INTERNAL ? 1.0 : 0.1,
+  })
+}
+
+// Import side effect, matching the Sentry setup module.
+setupBolide()
 
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
