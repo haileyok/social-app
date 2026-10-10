@@ -285,7 +285,8 @@
     "tlds": "^1.234.0",
     "tldts": "^6.1.46",
     "unicode-segmenter": "0.14.5",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "@bluesky/bolide": "file:../../../bluesky/bolide/packages/client"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
