@@ -9,7 +9,13 @@
  * send moment in browsers; pagehide/unload fire too late for fetch in some
  * engines.
  */
-import {captureError, captureMessage, flush, init} from '@bluesky/bolide'
+import {
+  captureError,
+  captureMessage,
+  flush,
+  init,
+  installGlobalErrorHandlers,
+} from '@bluesky/bolide'
 
 import * as env from '#/env'
 
@@ -33,8 +39,11 @@ export function setupBolide() {
   })
 }
 
-// Import side effect, matching the Sentry setup module.
-setupBolide()
+// Import side effect, matching the Sentry setup module: init, then
+// automatic capture of unhandled errors and rejections.
+if (setupBolide()) {
+  installGlobalErrorHandlers()
+}
 
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
