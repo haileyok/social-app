@@ -7,7 +7,7 @@
  */
 import {flush} from '@bluesky/bolide'
 
-export {captureError, captureMessage, setupBolide} from './index.js'
+export {captureError, captureMessage, setupBolide} from './index'
 
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {

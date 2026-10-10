@@ -5,4 +5,4 @@
  * bursty offline events with old timestamps) land here in the native phase;
  * the current milestone is envelope comparison on web.
  */
-export {captureError, captureMessage, setupBolide} from './index.js'
+export {captureError, captureMessage, setupBolide} from './index'
