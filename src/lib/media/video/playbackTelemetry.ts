@@ -1,4 +1,4 @@
-import {startSpan} from '@bluesky/bolide'
+import {measureSpanStalls, startSpan} from '@bluesky/bolide'
 
 /**
  * Where the video is being played.
@@ -17,7 +17,8 @@ export type PlaybackTelemetry = {
  * bolide-only observability for video playback in feeds. Opens a root span
  * per activation window (the video becomes the active, autoplaying one)
  * and ends it on deactivation, with time-to-ready and time-to-first-play
- * timings as attributes.
+ * timings as attributes. While the span is active, JS stall and slow/frozen
+ * frame measurements attach to it - the playback-smoothness signal.
  *
  * Does not report to the analytics pipeline, only bolide.
  */
@@ -29,12 +30,15 @@ export function createPlaybackTelemetry({
   presentation: 'video' | 'gif'
 }): PlaybackTelemetry {
   let span: ReturnType<typeof startSpan> | undefined
+  let stallMeasurement: ReturnType<typeof measureSpanStalls> | undefined
   let activatedAt = 0
   let sawReady = false
   let sawPlaying = false
 
   function end(outcome: 'ok' | 'error') {
     if (!span) return
+    stallMeasurement?.end()
+    stallMeasurement = undefined
     span.setAttribute('outcome', outcome)
     span.end()
     span = undefined
@@ -51,6 +55,7 @@ export function createPlaybackTelemetry({
         presentation,
         ...(opts?.preloaded !== undefined && {preloaded: opts.preloaded}),
       })
+      stallMeasurement = measureSpanStalls(span)
     },
 
     ready() {
