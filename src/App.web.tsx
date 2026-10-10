@@ -1,4 +1,5 @@
 import '#/logger/sentry/setup' // must be near top
+import '#/logger/bolide'
 import './style.css'
 
 import {Fragment, useEffect, useState} from 'react'
