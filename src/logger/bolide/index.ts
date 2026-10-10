@@ -29,6 +29,5 @@ export function setupBolide() {
     environment: env.ENV,
     release: env.RELEASE_VERSION,
     dist: env.BUNDLE_IDENTIFIER,
-    sampleRate: env.IS_INTERNAL ? 1.0 : 0.1,
   })
 }
