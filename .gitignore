@@ -141,3 +141,5 @@ docs/superpowers/
 
 # pnpm
 .pnpm-store/
+src/logger/reporting/reporter.gen.ts
+src/logger/reporting/reporter-boot.gen.ts

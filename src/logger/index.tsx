@@ -1,8 +1,8 @@
 import {nanoid} from 'nanoid/non-secure'
 
 import {add} from '#/logger/logDump'
+import {bolideTransport} from '#/logger/transports/bolide'
 import {consoleTransport} from '#/logger/transports/console'
-import {sentryTransport} from '#/logger/transports/sentry'
 import {
   LogContext,
   LogLevel,
@@ -15,7 +15,7 @@ import {ENV} from '#/env'
 const TRANSPORTS: Transport[] = (function configureTransports() {
   switch (ENV) {
     case 'production': {
-      return [sentryTransport].filter(Boolean)
+      return [bolideTransport]
     }
     case 'test': {
       return []

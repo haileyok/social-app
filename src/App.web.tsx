@@ -1,4 +1,4 @@
-import '#/logger/sentry/setup' // must be near top
+import '#/logger/reporting/reporter-boot.gen' // must be near top
 import '#/logger/bolide'
 import './style.css'
 
@@ -14,7 +14,6 @@ import {ThemeProvider} from '#/lib/ThemeContext'
 import {Provider as TranslateOnDeviceProvider} from '#/lib/translation'
 import I18nProvider from '#/locale/i18nProvider'
 import {logger} from '#/logger'
-import {Sentry} from '#/logger/sentry/lib'
 import {identifyDevice} from '#/logger/sentry/user'
 import {Provider as A11yProvider} from '#/state/a11y'
 import {
@@ -249,4 +248,7 @@ function App() {
   )
 }
 
-export default Sentry.wrap(App)
+// Sentry.wrap was an RN profiler wrapper (touch breadcrumbs, a React
+// profiler span); bolide has no profiler, so the root component passes
+// through unchanged.
+export default App

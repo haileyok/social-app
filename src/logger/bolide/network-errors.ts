@@ -1,5 +1,13 @@
+/**
+ * Ported from #/logger/sentry/network-errors (the Sentry migration): bolide
+ * should not report expected transport failures or transient upstream
+ * availability errors. Same matching rules, bolide event shape.
+ *
+ * Used as the bolide client's beforeSend: automatic captures (global error
+ * handlers) and logger transports both pass through it.
+ */
 import {XrpcResponseError} from '@atproto/lex'
-import {type ErrorEvent} from '@sentry/react-native'
+import type {ErrorEvent} from '@bluesky/bolide'
 
 import {isNetworkError, safeStringify} from '#/lib/network-error'
 
@@ -7,16 +15,14 @@ import {isNetworkError, safeStringify} from '#/lib/network-error'
  * Upstream-unavailable statuses. Matched on the status, not the lexicon
  * code: the PDS pipethrough rewrites the status to 502 but forwards the
  * upstream code verbatim, so a 502 can arrive named `InternalServerError`.
- * `#/lib/xrpc-error` is deliberately not imported - it pulls `#/lexicons`
- * into the module graph evaluated before `Sentry.init()`.
  */
 const TRANSIENT_UPSTREAM_STATUSES = new Set([502, 503, 504])
 
 /**
- * Sentry serializes `error.message`, not `toString()`, so these match the
- * message text: the payload message ("Upstream Timeout"), the lexicon code
- * ("UpstreamFailure"), and lex's payload-less "Upstream server responded with
- * a 504 error". Word boundaries keep camelCase identifiers from matching.
+ * These match the message text: the payload message ("Upstream Timeout"),
+ * the lexicon code ("UpstreamFailure"), and lex's payload-less "Upstream
+ * server responded with a 504 error". Word boundaries keep camelCase
+ * identifiers from matching.
  */
 const TRANSIENT_UPSTREAM_MESSAGES = [
   /\bupstream\s?failure\b/i,
@@ -27,12 +33,12 @@ const TRANSIENT_UPSTREAM_MESSAGES = [
 ]
 
 /**
- * Sentry should not report expected transport failures or transient upstream
- * availability errors. Keep this narrower than `XrpcError.shouldRetry()`:
+ * bolide should not report expected transport failures or transient upstream
+ * availability errors. Kept narrower than `XrpcError.shouldRetry()`:
  * fetch handlers can wrap implementation bugs, while 429s and generic 500s
  * can reveal actionable client or server regressions.
  */
-export function isExpectedSentryNetworkError(value: unknown): boolean {
+export function isExpectedNetworkError(value: unknown): boolean {
   if (isNetworkError(value)) {
     return true
   }
@@ -52,22 +58,20 @@ export function isExpectedSentryNetworkError(value: unknown): boolean {
 }
 
 /**
- * Global backstop for automatic captures that bypass the logger transport.
- *
- * Message events are skipped: Sentry sets `hint.originalException` to the
- * message string for `captureMessage`, and the only message producers are the
- * logger transport (already filtered) and user bug reports (never droppable).
+ * bolide beforeSend: drops expected network failures, passes everything
+ * else. Message events are skipped (the only message producers are the
+ * logger transport, already filtered, and user bug reports, never
+ * droppable).
  */
 export function dropExpectedNetworkErrors(
   event: ErrorEvent,
-  hint: {originalException?: unknown},
 ): ErrorEvent | null {
   const exceptions = event.exception?.values
   if (!exceptions?.length) {
     return event
   }
 
-  const candidates: unknown[] = [hint.originalException]
+  const candidates: unknown[] = []
 
   for (const exception of exceptions) {
     candidates.push(exception.value)
@@ -76,5 +80,5 @@ export function dropExpectedNetworkErrors(
     }
   }
 
-  return candidates.some(isExpectedSentryNetworkError) ? null : event
+  return candidates.some(isExpectedNetworkError) ? null : event
 }

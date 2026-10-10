@@ -1,11 +1,11 @@
 import {useState} from 'react'
 import {View} from 'react-native'
+import {captureMessage, isInitialized} from '@bluesky/bolide'
 import {plural} from '@lingui/core/macro'
 import {Trans, useLingui} from '@lingui/react/macro'
 import {useMutation} from '@tanstack/react-query'
 
 import {logger} from '#/logger'
-import {Sentry} from '#/logger/sentry/lib'
 import {useSession} from '#/state/session'
 import {atoms as a, useTheme, web} from '#/alf'
 import {Button, ButtonText} from '#/components/Button'
@@ -52,18 +52,16 @@ function BetaFeaturesFeedbackDialogInner({
   const {mutate: onSubmit, isPending} = useMutation({
     mutationFn: () => {
       /*
-       * `captureFeedback` is a no-op when the Sentry client is disabled (e.g. in
-       * dev, where `init` sets `enabled: false`). It returns synchronously
-       * without sending or throwing, so guard here to route to the error toast
-       * instead of falsely reporting success.
+       * bolide's captureMessage is a no-op when the client is disabled
+       * (e.g. in dev). It returns synchronously without sending or
+       * throwing, so guard here to route to the error toast instead of
+       * falsely reporting success.
        */
-      const enabled = Sentry.getClient()?.getOptions().enabled ?? false
-      if (!enabled) {
-        throw new Error('Sentry is disabled; feedback was not sent')
+      if (!isInitialized()) {
+        throw new Error('bolide is disabled; feedback was not sent')
       }
-      Sentry.captureFeedback(
-        {name: currentAccount?.handle, message: feedback.trim()},
-        {captureContext: {contexts: {betaFeatures: {keys: betaFeatureKeys}}}},
+      captureMessage(
+        `[BETA FEEDBACK] ${currentAccount?.handle ?? 'unknown'}: ${feedback.trim()}`,
       )
       return Promise.resolve()
     },

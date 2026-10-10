@@ -1,4 +1,4 @@
-import {Sentry} from '#/logger/sentry/lib'
+import {startSpan} from '@bluesky/bolide'
 
 /**
  * Where the video is being played.
@@ -14,13 +14,12 @@ export type PlaybackTelemetry = {
 }
 
 /**
- * Sentry-only observability for video playback in feeds. Opens a root span
- * per activation window (the video becomes the active, autoplaying one) and
- * ends it on deactivation. Because these are root spans, the SDK attaches JS
- * stall and slow/frozen frame measurements to them, capturing scroll
- * smoothness while a video is on screen.
+ * bolide-only observability for video playback in feeds. Opens a root span
+ * per activation window (the video becomes the active, autoplaying one)
+ * and ends it on deactivation, with time-to-ready and time-to-first-play
+ * timings as attributes.
  *
- * Does not report to the analytics pipeline, only Sentry.
+ * Does not report to the analytics pipeline, only bolide.
  */
 export function createPlaybackTelemetry({
   surface,
@@ -29,7 +28,7 @@ export function createPlaybackTelemetry({
   surface: PlaybackSurface
   presentation: 'video' | 'gif'
 }): PlaybackTelemetry {
-  let span: ReturnType<typeof Sentry.startInactiveSpan> | undefined
+  let span: ReturnType<typeof startSpan> | undefined
   let activatedAt = 0
   let sawReady = false
   let sawPlaying = false
@@ -47,14 +46,10 @@ export function createPlaybackTelemetry({
       activatedAt = Date.now()
       sawReady = false
       sawPlaying = false
-      span = Sentry.startInactiveSpan({
-        name: 'video.playback',
-        op: 'video.playback',
-        attributes: {
-          surface,
-          presentation,
-          ...(opts?.preloaded !== undefined && {preloaded: opts.preloaded}),
-        },
+      span = startSpan('video.playback', 'video.playback', {
+        surface,
+        presentation,
+        ...(opts?.preloaded !== undefined && {preloaded: opts.preloaded}),
       })
     },
 

@@ -1,12 +1,12 @@
 import {Platform} from 'react-native'
 import {type ImagePickerAsset} from 'expo-image-picker'
+import {startSpan, withActiveSpan} from '@bluesky/bolide'
 import {nanoid} from 'nanoid/non-secure'
 
 import {
   type ProbedMetadata,
   type VideoCompressSkipReason,
 } from '#/lib/media/video/types'
-import {Sentry} from '#/logger/sentry/lib'
 import {type Metrics} from '#/analytics/metrics'
 
 type MetricFn = <E extends keyof Metrics>(event: E, payload: Metrics[E]) => void
@@ -75,21 +75,17 @@ export function createVideoTelemetry({
 
   // Parent span: full selection->ready arc. Inactive so phase spans can be
   // attached as children regardless of the current async context.
-  const txn = Sentry.startInactiveSpan({
-    name: 'video.upload',
-    op: 'video.upload',
-    attributes: {
-      uploadId,
-      engine,
-      'video.source.mime': asset.mimeType ?? 'unknown',
-      'video.source.bytes': asset.fileSize ?? 0,
-      'video.source.durationMs': asset.duration ?? 0,
-      'video.source.width': asset.width ?? 0,
-      'video.source.height': asset.height ?? 0,
-    },
+  const txn = startSpan('video.upload', 'video.upload', {
+    uploadId,
+    engine,
+    'video.source.mime': asset.mimeType ?? 'unknown',
+    'video.source.bytes': asset.fileSize ?? 0,
+    'video.source.durationMs': asset.duration ?? 0,
+    'video.source.width': asset.width ?? 0,
+    'video.source.height': asset.height ?? 0,
   })
 
-  let phaseSpan: ReturnType<typeof Sentry.startInactiveSpan> | undefined
+  let phaseSpan: ReturnType<typeof startSpan> | undefined
 
   function endPhaseSpan() {
     if (!phaseSpan) return
@@ -101,13 +97,9 @@ export function createVideoTelemetry({
     endPhaseSpan()
     phase = next
     phaseStartedAt = Date.now()
-    phaseSpan = Sentry.withActiveSpan(txn, () =>
-      Sentry.startInactiveSpan({
-        name: spanName,
-        op: spanName,
-        attributes: {uploadId, engine},
-      }),
-    )
+    // Parent span active on the stack while the phase span starts, so the
+    // phase links to the upload arc (bolide's withActiveSpan pattern).
+    phaseSpan = withActiveSpan(spanName, spanName, async () => startSpan(spanName, spanName, {uploadId, engine}))
   }
 
   function endTxn(outcome: 'ok' | 'error' | 'cancelled') {

@@ -40,7 +40,6 @@ module.exports = function (_config) {
   const UPDATES_ENABLED =
     (IS_TESTFLIGHT || IS_PRODUCTION) && !process.env.DISABLE_UPDATES
 
-  const USE_SENTRY = Boolean(process.env.SENTRY_AUTH_TOKEN)
 
   const IOS_ICON_FILE =
     PLATFORM === 'web' // web build doesn't like .icon files
@@ -267,32 +266,12 @@ module.exports = function (_config) {
           'react-native-edge-to-edge',
           {android: {enforceNavigationBarContrast: false}},
         ],
-        /*
-         * Expo runs Gradle mods in reverse registration order. Keep Bitdrift
-         * before Sentry so its plugins block is prepended after Sentry's apply
-         * statement and remains at the top, as required by Gradle.
-         */
         [
           '@bitdrift/react-native',
           {
             networkInstrumentation: true,
           },
         ],
-        ...(USE_SENTRY
-          ? [
-              /** @type {[string, any]} */ ([
-                '@sentry/react-native/expo',
-                {
-                  organization: 'blueskyweb',
-                  project: 'app',
-                  url: 'https://sentry.io',
-                  experimental_android: {
-                    enableAndroidGradlePlugin: true,
-                  },
-                },
-              ]),
-            ]
-          : []),
         [
           'expo-build-properties',
           {

@@ -1,15 +1,6 @@
-import {Sentry} from '#/logger/sentry/lib'
-
 /**
- * Count affected installations using the same device ID as app analytics.
+ * Device identification for error reporting. Implementation is generated
+ * per build from EXPO_PUBLIC_ERROR_REPORTER (scripts/gen-error-reporter.js)
+ * so only the selected reporter's module graph is bundled.
  */
-export async function identifyDevice(
-  existingDeviceId: string | undefined,
-  deviceId: Promise<string>,
-): Promise<void> {
-  try {
-    Sentry.setUser({id: existingDeviceId ?? (await deviceId)})
-  } catch {
-    // Device ID initialization is handled by app startup; telemetry is optional.
-  }
-}
+export {identifyDevice} from '../reporting/reporter.gen'
