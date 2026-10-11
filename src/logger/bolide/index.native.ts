@@ -9,7 +9,7 @@
  * with old timestamps) land here in the native phase; the current milestone
  * is envelope comparison on web.
  */
-import {captureError, captureMessage, init} from '@bluesky/bolide'
+import {captureError, captureMessage, init, installAutomaticCaptures} from '@bluesky/bolide'
 
 import * as env from '#/env'
 
@@ -32,5 +32,8 @@ export function setupBolide() {
   })
 }
 
-// Import side effect, matching the Sentry setup module.
-setupBolide()
+// Import side effect, matching the Sentry setup module: init, then the
+// automatic captures (RN ErrorUtils/Hermes handlers + breadcrumb ring).
+if (setupBolide()) {
+  installAutomaticCaptures()
+}
