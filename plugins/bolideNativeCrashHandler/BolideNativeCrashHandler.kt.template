@@ -1,0 +1,87 @@
+package __PACKAGE__
+
+import android.content.Context
+import java.io.File
+import org.json.JSONObject
+
+/**
+ * Native crash capture for the bolide error reporter.
+ *
+ * A fatal Android crash (an uncaught exception on any thread) never
+ * reaches the JS layer: the process dies before React can react. This
+ * handler catches it, writes a crash record to the app's private files
+ * dir, then chains to the previous handler (so the system's crash
+ * dialog / tombstone behavior is unchanged).
+ *
+ * At relaunch, the JS layer (src/logger/bolide) reads pending crash
+ * records, re-queues them as events, and deletes the files - riding
+ * the same offline-persistence channel (bolide.queue re-queue path).
+ *
+ * One pending crash is kept per crash type: the handler writes before
+ * chaining, so a crash-looping app overwrites its own last record -
+ * the count field preserves how many times it looped.
+ */
+object BolideNativeCrashHandler {
+
+    private const val DIR = "bolide-native-crashes"
+
+    fun install(context: Context) {
+        val appContext = context.applicationContext
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                writeCrash(appContext, thread, throwable)
+            } catch (_: Throwable) {
+                // Never let crash reporting interfere with the crash
+                // itself; chain through regardless.
+            }
+            previous?.uncaughtException(thread, throwable)
+        }
+    }
+
+    /** The pending crash files, oldest first (the JS relaunch reader consumes this). */
+    fun pendingCrashes(context: Context): List<File> {
+        val dir = File(context.filesDir, DIR)
+        if (!dir.isDirectory) return emptyList()
+        return dir.listFiles { f -> f.name.endsWith(".json") }
+            ?.sortedBy { it.name }
+            ?: emptyList()
+    }
+
+    private fun writeCrash(context: Context, thread: Thread, throwable: Throwable) {
+        val dir = File(context.filesDir, DIR)
+        dir.mkdirs()
+        val type = throwable.javaClass.name
+        val message = throwable.message ?: ""
+        // Stack: top N frames, one per line, class:line notation.
+        val stack = throwable.stackTrace.take(20).joinToString("\n") { frame ->
+            "${frame.className}.${frame.methodName}(${frame.fileName}:${frame.lineNumber})"
+        }
+        val cause = throwable.cause?.let { cause ->
+            "caused by ${cause.javaClass.name}: ${cause.message ?: ""}"
+        } ?: ""
+        val record = JSONObject().apply {
+            put("kind", "native_crash")
+            put("type", type)
+            put("message", message)
+            put("thread", thread.name)
+            put("stack", stack)
+            put("cause", cause)
+            put("at_ms", System.currentTimeMillis())
+        }
+        // One file per crash type; the count field tracks a crash loop.
+        val file = File(dir, "$type.json")
+        if (file.exists()) {
+            val prev = file.readText()
+            val count = try {
+                JSONObject(prev).optInt("count", 1)
+            } catch (_: Throwable) {
+                1
+            }
+            record.put("count", count + 1)
+        } else {
+            record.put("count", 1)
+        }
+        file.writeText(record.toString())
+    }
+}
