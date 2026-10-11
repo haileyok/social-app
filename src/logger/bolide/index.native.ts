@@ -9,7 +9,17 @@
  * with old timestamps) land here in the native phase; the current milestone
  * is envelope comparison on web.
  */
-import {captureError, captureMessage, init, installAutomaticCaptures} from '@bluesky/bolide'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import {
+  captureError,
+  captureMessage,
+  flush,
+  init,
+  installAutomaticCaptures,
+  requeueEvent,
+  setPersistence,
+  type PersistenceStore,
+} from '@bluesky/bolide'
 
 import * as env from '#/env'
 
@@ -32,8 +42,56 @@ export function setupBolide() {
   })
 }
 
-// Import side effect, matching the Sentry setup module: init, then the
-// automatic captures (RN ErrorUtils/Hermes handlers + breadcrumb ring).
+/*
+ * Offline persistence: the client's unflushed queue survives app death and
+ * flushes at relaunch (delayed, bursty offline events with old
+ * timestamps). AsyncStorage is the platform store - the same store the
+ * app's persisted state uses.
+ */
+function bolidePersistenceStore(): PersistenceStore {
+  return {
+    load: async () => {
+      try {
+        return await AsyncStorage.getItem('bolide.queue.v1')
+      } catch {
+        return null
+      }
+    },
+    save: async (state: string) => {
+      try {
+        await AsyncStorage.setItem('bolide.queue.v1', state)
+      } catch {
+        // Best-effort: storage full or unavailable must not crash the app.
+      }
+    },
+    clear: async () => {
+      try {
+        await AsyncStorage.removeItem('bolide.queue.v1')
+      } catch {}
+    },
+  }
+}
+
+// Import side effect, matching the Sentry setup module: init, persistence,
+// then the automatic captures (RN ErrorUtils/Hermes handlers + breadcrumbs).
 if (setupBolide()) {
+  void setPersistence(bolidePersistenceStore(), {
+    prependEvents: events => {
+      for (const event of events) {
+        requeueEvent(event)
+      }
+    },
+    prependSpans: () => {
+      // Spans from a previous session are diagnostics: dropped rather
+      // than re-synthesized (the span re-queue path lands with the native
+      // span phase).
+    },
+  })
   installAutomaticCaptures()
+  // Relaunch flush: whatever the load brought back rides out immediately
+  // (the ingestion service accepts old timestamps; implausible ones fall
+  // back to received_at).
+  setTimeout(() => {
+    void flush(5000).catch(() => {})
+  }, 3000)
 }
