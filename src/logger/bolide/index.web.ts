@@ -14,7 +14,7 @@ import {
   captureMessage,
   flush,
   init,
-  installGlobalErrorHandlers,
+  installAutomaticCaptures,
 } from '@bluesky/bolide'
 
 import * as env from '#/env'
@@ -39,9 +39,10 @@ export function setupBolide() {
 }
 
 // Import side effect, matching the Sentry setup module: init, then
-// automatic capture of unhandled errors and rejections.
+// automatic capture of unhandled errors/rejections and the breadcrumb
+// ring (console, clicks, navigation).
 if (setupBolide()) {
-  installGlobalErrorHandlers()
+  installAutomaticCaptures()
 }
 
 if (typeof document !== 'undefined') {
